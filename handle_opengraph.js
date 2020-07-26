@@ -10,6 +10,7 @@ let Jimp = require('jimp');
 const url = require('url');
 const fetch = require('node-fetch');
 const HTMLParser = require('node-html-parser');
+const parseCurrency = require('parsecurrency');
 
 let awsKeyId = process.env.MG_AWS_KEY_ID;
 let awsSecretAccessKey = process.env.MG_AWS_SECRET_ACCESS_KEY;
@@ -205,11 +206,13 @@ async function fetchOgMetadataAndImagesAndUploadToAWS(url, urlHashKey, writeHtml
     ogInfo['results']['data']['ogUrl'] = url
   }
   ogInfo['results']['data']['ogImage'] = ogInfoRobot['results']['data']['ogImage']
+  ogInfo['results']['data']['urlHashKey'] = urlHashKey
 
   let [successInGettingPrice, price] = getPrice(HTMLParser.parse(ogInfoRobot['response'].body.toString()))
   ogInfo['results']['data']['pricingInfo'] = {
     successInGettingPrice: successInGettingPrice,
-    price: price
+    parsedPrice: successInGettingPrice ? parseCurrency(price) : undefined,
+    price: successInGettingPrice ? price : undefined
   }
   console.log("price=", price)
   if (writeHtmlToTestFolder){
