@@ -4,10 +4,12 @@ let ogs = require('open-graph-scraper');
 const potrace = require('potrace');
 const SVGO = require('svgo');
 const AWS = require('aws-sdk');
+const fs = require('fs');
 ogs = promisify(ogs).bind(ogs);
 let Jimp = require('jimp');
 const url = require('url');
 const fetch = require('node-fetch');
+const HTMLParser = require('node-html-parser');
 
 let awsKeyId = process.env.MG_AWS_KEY_ID;
 let awsSecretAccessKey = process.env.MG_AWS_SECRET_ACCESS_KEY;
@@ -23,25 +25,6 @@ let polly = new AWS.Polly({
   secretAccessKey: awsSecretAccessKey,
   region: 'us-east-1'
 })
-
-svgo = new SVGO({
-  multipass: true,
-  floatPrecision: 0,
-  plugins: [
-    {
-      removeViewBox: false,
-    },
-    {
-      addAttributesToSVGElement: {
-        attributes: [
-          {
-            preserveAspectRatio: `none`,
-          },
-        ],
-      },
-    },
-  ],
-});
 
 async function uploadBufferToAmazon(buffer, filename) {
   // Setting up S3 upload parameters
@@ -108,8 +91,11 @@ async function getOpenGraphInfo(url, useRobotUserAgent = false) {
         'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
       }
     }
-    ogs(options, function (error, results) {
-      resolve(results)
+    ogs(options, function (error, results, response) {
+      resolve({
+        results: results,
+        response: response
+      })
     });
   })
 }
@@ -180,22 +166,62 @@ async function processOgData(ogData, urlHashKey, backgroundColor, includeReactio
   return ogData;
 }
 
-async function fetchOgMetadataAndImagesAndUploadToAWS(url, urlHashKey) {
+function getPrice (root) {
+  try {
+    if (root.querySelector('#priceblock_dealprice')) {
+      let price = root.querySelector('#priceblock_dealprice').childNodes[0].rawText
+      return [true, price]
+    } else if (root.querySelector('#priceblock_ourprice')) {
+      let price = root.querySelector('#priceblock_ourprice').childNodes[0].rawText
+      return [true, price]
+    } else if (root.querySelector('#priceblock_saleprice')) {
+      let price = root.querySelector('#priceblock_saleprice').childNodes[0].rawText
+      return [true, price]
+    } else if (root.querySelector('.offer-price')) {
+      let price = root.querySelector('.offer-price').childNodes[0].rawText
+      return [true, price]
+    } else {
+      return [false, 'NO_PRICE_FOUND']
+    }
+  }
+  catch {
+    return [false, 'NO_PRICE_FOUND']
+  }
+}
+
+async function fetchOgMetadataAndImagesAndUploadToAWS(url, urlHashKey, writeHtmlToTestFolder = true) {
 
   let ogInfo = await getOpenGraphInfo(url, false);
   let ogInfoRobot = await getOpenGraphInfo(url, true);
-  // if there is no url in the metadata, use the one that was requested from
-  if (ogInfo['data']['ogUrl'] === undefined) {
-    ogInfo['data']['ogUrl'] = url
+
+  if (writeHtmlToTestFolder){
+    fs.writeFileSync(`test/pages/${urlHashKey}.html`, ogInfoRobot['response'].body.toString());
   }
-  ogInfo['data']['ogImage'] = ogInfoRobot['data']['ogImage']
+
+  // console.log("ogInfo['results']=", ogInfo['results'])
+  // console.log("ogInfo['response']=", ogInfo['response']['childNodes'][1])
+  // if there is no url in the metadata, use the one that was requested from
+  if (ogInfo['results']['data']['ogUrl'] === undefined) {
+    ogInfo['results']['data']['ogUrl'] = url
+  }
+  ogInfo['results']['data']['ogImage'] = ogInfoRobot['results']['data']['ogImage']
+
+  let [successInGettingPrice, price] = getPrice(HTMLParser.parse(ogInfoRobot['response'].body.toString()))
+  ogInfo['results']['data']['pricingInfo'] = {
+    successInGettingPrice: successInGettingPrice,
+    price: price
+  }
+  console.log("price=", price)
+  if (writeHtmlToTestFolder){
+    fs.writeFileSync(`test/og_info/${urlHashKey}.json`, JSON.stringify(ogInfo['results']['data']));
+  }
 
 
-  console.log("ogInfo=", JSON.stringify(ogInfo))
+  // console.log("ogInfo=", JSON.stringify(ogInfo))
 
-  if (ogInfo["success"]) {
-    ogInfo["data"]["success"] = true
-    return await processOgData(ogInfo["data"], urlHashKey)
+  if (ogInfo['results']["success"]) {
+    ogInfo['results']["data"]["success"] = true
+    return await processOgData(ogInfo['results']["data"], urlHashKey)
   } else {
     return {
       success: false,
@@ -360,6 +386,7 @@ async function processIgFeedImageToBuffer(ogData, ogImage, backgroundColor, incl
 
 
 module.exports.processUrl = processUrl
+module.exports.getPrice = getPrice
 // module.exports.createShotStack = createShotStack
 // module.exports.getShotStack = getShotStack
 // module.exports.processReaction = processReaction

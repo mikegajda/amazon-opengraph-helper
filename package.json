@@ -4,16 +4,19 @@
   "description": "",
   "main": "handle_opengraph.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "aws-sdk": "^2.678.0",
+    "chai": "^4.2.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "jimp": "^0.12.1",
+    "mocha": "^8.0.1",
     "node-fetch": "^2.6.0",
+    "node-html-parser": "^1.2.20",
     "open-graph-scraper": "^3.6.2",
     "potrace": "^2.1.6",
     "serverless-http": "^2.5.0",
