@@ -315,8 +315,7 @@ function cleanUrl(urlToClean) {
   return cleanUrl
 }
 
-async function processUrl(urlToParse, breakCache, backgroundColor = '01bc84',
-    includeReaction = true, reaction = '') {
+async function processUrl(urlToParse, breakCache, writeFiles) {
   let cleanedUrl = cleanUrl(urlToParse)
   let urlHashKey = stringHash(cleanedUrl);
 
@@ -329,11 +328,11 @@ async function processUrl(urlToParse, breakCache, backgroundColor = '01bc84',
     } catch (e) {
       console.error("Error while fetching file, will instead do a new fetch")
       return await fetchOgMetadataAndImagesAndUploadToAWS(cleanedUrl,
-          urlHashKey)
+          urlHashKey, writeFiles)
     }
   } else {
     let response = await fetchOgMetadataAndImagesAndUploadToAWS(cleanedUrl,
-        urlHashKey)
+        urlHashKey, writeFiles)
     return response
   }
 }
