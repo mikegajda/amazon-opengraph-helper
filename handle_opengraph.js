@@ -11,6 +11,7 @@ const url = require('url');
 const fetch = require('node-fetch');
 const HTMLParser = require('node-html-parser');
 const parseCurrency = require('parsecurrency');
+const got = require('got')
 
 let awsKeyId = process.env.MG_AWS_KEY_ID;
 let awsSecretAccessKey = process.env.MG_AWS_SECRET_ACCESS_KEY;
@@ -87,7 +88,7 @@ async function getOpenGraphInfo(url, useRobotUserAgent = false) {
     let options = {
       url: url
     }
-    if (useRobotUserAgent){
+    if (useRobotUserAgent) {
       options['headers'] = {
         'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
       }
@@ -101,7 +102,8 @@ async function getOpenGraphInfo(url, useRobotUserAgent = false) {
   })
 }
 
-async function processOgData(ogData, urlHashKey, backgroundColor, includeReaction,
+async function processOgData(ogData, urlHashKey, backgroundColor,
+    includeReaction,
     reaction) {
   let awsResponse
 
@@ -113,7 +115,6 @@ async function processOgData(ogData, urlHashKey, backgroundColor, includeReactio
     ogImage = ogImage.quality(85)
 
     let imageBufferPromise = ogImage.getBufferAsync("image/jpeg");
-
 
     // let pollyBufferPromise = getPollySpeechBufferForText(ogData.ogTitle);
     // let igFeedBufferPromise = processIgFeedImageToBuffer(ogData, ogImage,
@@ -131,7 +132,7 @@ async function processOgData(ogData, urlHashKey, backgroundColor, includeReactio
 
     let [imageBuffer, igFeedBuffer, igStoryBuffer, igStoryWithoutTextBuffer, pollyBuffer] = await Promise.all(
         [imageBufferPromise])
-          // igFeedBufferPromise, igStoryBufferPromise, igStoryBufferWithoutTextPromise, pollyBufferPromise])
+    // igFeedBufferPromise, igStoryBufferPromise, igStoryBufferWithoutTextPromise, pollyBufferPromise])
     console.log("got image buffers")
 
     let imageBufferAwsPromise = uploadBufferToAmazon(imageBuffer,
@@ -146,7 +147,6 @@ async function processOgData(ogData, urlHashKey, backgroundColor, includeReactio
     //
     // let igFeedBufferBufferAwsPromise = uploadBufferToAmazon(igFeedBuffer,
     //     `${urlHashKey}_ig_feed.jpg`);
-
 
     // let igFeedWhiteTextBufferBufferAwsPromise = uploadBufferToAmazon(igFeedWhiteTextBuffer,
     //     `${urlHashKey}_ig_feed_white_text.jpg`);
@@ -167,16 +167,89 @@ async function processOgData(ogData, urlHashKey, backgroundColor, includeReactio
   return ogData;
 }
 
-function getPrice (root) {
+async function getPriceForUrl(urlToParse) {
+  let cleanedUrl = cleanUrl(urlToParse)
+  let urlHashKey = stringHash(cleanedUrl);
+
+  const response = await got(cleanedUrl);
+  let [successInGettingPrice, price] = getPrice(HTMLParser.parse(response.body))
+  return {
+    "successInGettingPrice": successInGettingPrice,
+    "price": successInGettingPrice ? price : undefined,
+    "parsedPrice": successInGettingPrice ? parseCurrency(price) : undefined
+  }
+
+}
+
+async function getAmazonCategoryToEpaCategoryMap() {
+  let gSheetUrl = 'https://spreadsheets.google.com/feeds/cells/1cf76iwzx03XqE_jqq8XGlPv710RGqnSLGG-updJhy1I/1/public/full?alt=json'
+  let response = await got(gSheetUrl)
+  let gsheetAsJson = JSON.parse(response.body)
+
+  let result = {}
+  for (let i = 0; i < gsheetAsJson['feed']['entry'].length; i += 2) {
+    if (i % 2 === 0) {
+      result[gsheetAsJson['feed']['entry'][i]['gs$cell'].inputValue] = gsheetAsJson['feed']['entry'][i
+      + 1]['gs$cell'].inputValue
+    }
+  }
+  return result
+}
+
+async function getEpaCategoryToCarbonFootprintMap() {
+  let gSheetUrl = 'https://spreadsheets.google.com/feeds/cells/1BP586OIxOyhIH0gJYRZVE46d9Q9IIdvMy0lLXY_bAe0/5/public/full?alt=json'
+  let response = await got(gSheetUrl)
+  let gsheetAsJson = JSON.parse(response.body)
+
+  let result = {}
+  for (let i = 0; i < gsheetAsJson['feed']['entry'].length; i += 2) {
+    if (i % 2 === 0) {
+      result[gsheetAsJson['feed']['entry'][i]['gs$cell'].inputValue] = gsheetAsJson['feed']['entry'][i
+      + 1]['gs$cell'].inputValue
+    }
+  }
+  return result
+}
+
+async function getCarbonFootprintInGrams(parsedPrice, amazonCategory) {
+  let amazonCategoryToEPACategoryMap = await getAmazonCategoryToEpaCategoryMap();
+  // epa category -> kg co2 e / $
+  let epaCategoryToCarbonFootprintMap = await getEpaCategoryToCarbonFootprintMap();
+  let priceInDollarsToday = parsedPrice.value
+  console.log('priceInDollarsToday=', priceInDollarsToday)
+  // inflation 2013 -> 2020 = 10.7%
+  let priceInDollars2013 = priceInDollarsToday * 0.893
+  console.log('priceInDollars2013=', priceInDollars2013)
+  if (amazonCategory in amazonCategoryToEPACategoryMap){
+    let epaCategory = amazonCategoryToEPACategoryMap[amazonCategory]
+    console.log('epaCategory=', epaCategory)
+
+    let epaCategoryCarbonFootprint = epaCategoryToCarbonFootprintMap[epaCategory]
+    console.log('epaCategoryFootrpint=', epaCategoryCarbonFootprint)
+
+    let result = priceInDollars2013 * epaCategoryCarbonFootprint * 1000
+    console.log('result=', result)
+  }
+  else {
+    //
+    let defaultCarbonFootprint = 0.10
+    return priceInDollars2013 * defaultCarbonFootprint * 1000
+  }
+}
+
+function getPrice(root) {
   try {
     if (root.querySelector('#priceblock_dealprice')) {
-      let price = root.querySelector('#priceblock_dealprice').childNodes[0].rawText
+      let price = root.querySelector(
+          '#priceblock_dealprice').childNodes[0].rawText
       return [true, price]
     } else if (root.querySelector('#priceblock_ourprice')) {
-      let price = root.querySelector('#priceblock_ourprice').childNodes[0].rawText
+      let price = root.querySelector(
+          '#priceblock_ourprice').childNodes[0].rawText
       return [true, price]
     } else if (root.querySelector('#priceblock_saleprice')) {
-      let price = root.querySelector('#priceblock_saleprice').childNodes[0].rawText
+      let price = root.querySelector(
+          '#priceblock_saleprice').childNodes[0].rawText
       return [true, price]
     } else if (root.querySelector('.offer-price')) {
       let price = root.querySelector('.offer-price').childNodes[0].rawText
@@ -184,19 +257,20 @@ function getPrice (root) {
     } else {
       return [false, 'NO_PRICE_FOUND']
     }
-  }
-  catch {
+  } catch {
     return [false, 'NO_PRICE_FOUND']
   }
 }
 
-async function fetchOgMetadataAndImagesAndUploadToAWS(url, urlHashKey, writeHtmlToTestFolder = true) {
+async function fetchOgMetadataAndImagesAndUploadToAWS(url, urlHashKey,
+    writeHtmlToTestFolder = true) {
 
   let ogInfo = await getOpenGraphInfo(url, false);
   let ogInfoRobot = await getOpenGraphInfo(url, true);
 
-  if (writeHtmlToTestFolder){
-    fs.writeFileSync(`test/pages/${urlHashKey}.html`, ogInfoRobot['response'].body.toString());
+  if (writeHtmlToTestFolder) {
+    fs.writeFileSync(`test/pages/${urlHashKey}.html`,
+        ogInfoRobot['response'].body.toString());
   }
 
   // console.log("ogInfo['results']=", ogInfo['results'])
@@ -208,17 +282,18 @@ async function fetchOgMetadataAndImagesAndUploadToAWS(url, urlHashKey, writeHtml
   ogInfo['results']['data']['ogImage'] = ogInfoRobot['results']['data']['ogImage']
   ogInfo['results']['data']['urlHashKey'] = urlHashKey
 
-  let [successInGettingPrice, price] = getPrice(HTMLParser.parse(ogInfoRobot['response'].body.toString()))
+  let [successInGettingPrice, price] = getPrice(
+      HTMLParser.parse(ogInfoRobot['response'].body.toString()))
   ogInfo['results']['data']['pricingInfo'] = {
     successInGettingPrice: successInGettingPrice,
     parsedPrice: successInGettingPrice ? parseCurrency(price) : undefined,
     price: successInGettingPrice ? price : undefined
   }
   console.log("price=", price)
-  if (writeHtmlToTestFolder){
-    fs.writeFileSync(`test/og_info/${urlHashKey}.json`, JSON.stringify(ogInfo['results']['data']));
+  if (writeHtmlToTestFolder) {
+    fs.writeFileSync(`test/og_info/${urlHashKey}.json`,
+        JSON.stringify(ogInfo['results']['data']));
   }
-
 
   // console.log("ogInfo=", JSON.stringify(ogInfo))
 
@@ -240,7 +315,8 @@ function cleanUrl(urlToClean) {
   return cleanUrl
 }
 
-async function processUrl(urlToParse, breakCache, backgroundColor = '01bc84', includeReaction = true, reaction = '') {
+async function processUrl(urlToParse, breakCache, backgroundColor = '01bc84',
+    includeReaction = true, reaction = '') {
   let cleanedUrl = cleanUrl(urlToParse)
   let urlHashKey = stringHash(cleanedUrl);
 
@@ -296,7 +372,8 @@ function fixTitle(title) {
   return title
 }
 
-async function processIgStoryImageToBuffer(ogData, ogImage, backgroundColor, includeReaction, reactionImage, printText = true ) {
+async function processIgStoryImageToBuffer(ogData, ogImage, backgroundColor,
+    includeReaction, reactionImage, printText = true) {
   ogImage = ogImage.cover(1080, 680);
   // let imageBuffer = await ogImage.getBufferAsync("image/jpeg");
 
@@ -304,7 +381,7 @@ async function processIgStoryImageToBuffer(ogData, ogImage, backgroundColor, inc
 
   let outputImage = background.composite(ogImage, 0, 630);
 
-  if (includeReaction){
+  if (includeReaction) {
     outputImage = outputImage.composite(reactionImage, 67, 1300)
   }
 
@@ -314,7 +391,6 @@ async function processIgStoryImageToBuffer(ogData, ogImage, backgroundColor, inc
         `https://s3.amazonaws.com/cdn.mikegajda.com/GothicA1-SemiBold-60/GothicA1-SemiBold.ttf.fnt`);
     let urlFont = await Jimp.loadFont(
         `https://s3.amazonaws.com/cdn.mikegajda.com/GothicA1-Regular-32/GothicA1-Regular.ttf.fnt`);
-
 
     let url = extractHostname(ogData.ogUrl)
     let title = fixTitle(ogData.ogTitle)
@@ -329,14 +405,16 @@ async function processIgStoryImageToBuffer(ogData, ogImage, backgroundColor, inc
     console.log("igStory titleHeight", titleHeight)
     console.log("igStory lineCount", lines)
     outputImage = await outputImage.print(urlFont, 80, 580, url, maxWidth);
-    outputImage = await outputImage.print(titleFont, 80, titleY, title, maxWidth);
+    outputImage = await outputImage.print(titleFont, 80, titleY, title,
+        maxWidth);
   }
 
   return await outputImage.getBufferAsync("image/jpeg");
 
 }
 
-async function processIgFeedImageToBuffer(ogData, ogImage, backgroundColor, includeReaction, reactionImage) {
+async function processIgFeedImageToBuffer(ogData, ogImage, backgroundColor,
+    includeReaction, reactionImage) {
   // generated with https://ttf2fnt.com/
   let titleFont = await Jimp.loadFont(
       `https://s3.amazonaws.com/cdn.mikegajda.com/GothicA1-SemiBold-50/GothicA1-SemiBold.ttf.fnt`);
@@ -356,7 +434,7 @@ async function processIgFeedImageToBuffer(ogData, ogImage, backgroundColor, incl
   // this is the maximum size of the image, calculated manually
   let maxImageHeight = 819;
   // image should be larger if we don't have a reaction
-  if (!includeReaction){
+  if (!includeReaction) {
     maxImageHeight += 135
   }
   let imageHeight = maxImageHeight - (linesCount * lineHeight)
@@ -372,24 +450,26 @@ async function processIgFeedImageToBuffer(ogData, ogImage, backgroundColor, incl
 
   let outputImage = background.composite(ogImage, 0, imageYAxis);
 
-  if (includeReaction){
+  if (includeReaction) {
     outputImage = outputImage.composite(reactionImage, 130, 887)
   }
-
 
   outputImage = await outputImage.print(titleFont, 30, 30, title, 1020);
   // here, the y value is just slightly less than 30 + titleHeight on purpose, so that
   // the url looks more attached to the title
-  outputImage = await outputImage.print(urlFont, 30, 22 + titleHeight, url, 1020);
-
+  outputImage = await outputImage.print(urlFont, 30, 22 + titleHeight, url,
+      1020);
 
   return await outputImage.getBufferAsync("image/jpeg");
 
 }
 
-
 module.exports.processUrl = processUrl
+module.exports.getPriceForUrl = getPriceForUrl
 module.exports.getPrice = getPrice
+module.exports.getAmazonCategoryToEpaCategoryMap = getAmazonCategoryToEpaCategoryMap
+module.exports.getEpaCategoryToCarbonFootprintMap = getEpaCategoryToCarbonFootprintMap
+module.exports.getCarbonFootprintInGrams = getCarbonFootprintInGrams
 // module.exports.createShotStack = createShotStack
 // module.exports.getShotStack = getShotStack
 // module.exports.processReaction = processReaction

@@ -39,4 +39,23 @@ describe('Handle Opengraph', function () {
       })
     });
   });
+  describe('#getAmazonCategoryToEpaCategoryMap', async function () {
+    it('should generate the expected map', async function () {
+      let map = await handle_opengraph.getAmazonCategoryToEpaCategoryMap()
+      console.log(map)
+    });
+  });
+  describe('#getAmazonCategoryToEpaCategoryMap', async function () {
+    it('should generate the expected map', async function () {
+      let map = await handle_opengraph.getEpaCategoryToCarbonFootprintMap()
+      console.log(map)
+    });
+  });
+  describe('#getCarbonFootprintInGrams', async function () {
+    it('should generate the expected map', async function () {
+      let footprint = await handle_opengraph.getCarbonFootprintInGrams({value: 1.00}, "Personal Computer")
+      console.log(footprint)
+    });
+  });
 });
+

@@ -17,6 +17,11 @@ router.get('/opengraph-info', async (req, res) => {
   res.json(response);
 });
 
+router.get('/get-price', async (req, res) => {
+  let response = await handle_opengraph.getPriceForUrl(req.query["url"])
+  res.json(response);
+});
+
 router.get('/create-shotstack', async (req, res) => {
   let response = await handle_opengraph.createShotStack(req.query["url"])
   res.json(response);
