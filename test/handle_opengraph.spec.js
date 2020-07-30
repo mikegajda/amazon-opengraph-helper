@@ -57,5 +57,16 @@ describe('Handle Opengraph', function () {
       console.log(footprint)
     });
   });
+  describe('#getProductCategory', async function () {
+    it('should generate the expected map', async function () {
+      let files = await getTestFiles()
+      files.forEach(fileName => {
+        let ogInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'og_info', fileName.split(".")[0] + ".json")))
+        let category = handle_opengraph.getProductCategory(ogInfo['ogTitle'])
+        console.log("category=", category);
+        expect(category).to.not.equal("UNKNOWN");
+      })
+    });
+  });
 });
 

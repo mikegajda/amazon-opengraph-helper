@@ -66,9 +66,28 @@ async function checkIfFileExistsInS3(filename) {
   })
 }
 
+function getProductCategory(ogTitle) {
+  let ogTitleSplit = ogTitle.split(" : ")
+  try {
+    if (ogTitleSplit.length >= 2){
+      return ogTitleSplit[2].trim();
+    }
+    else {
+      ogTitleSplit = ogTitle.split(":")
+      if (ogTitleSplit.length >= 2){
+        return ogTitleSplit[2].trim();
+      }
+      return "UNKNOWN";
+    }
+  }
+  catch {
+    return "UNKOWN"
+  }
+
+}
 async function getFileInS3(filename) {
   const params = {
-    Bucket: "cdn.mikegajda.com",
+    Bucket: "cdn.carboncalculator.org",
     Key: filename
   };
   return new Promise((resolve, reject) => {
@@ -281,6 +300,7 @@ async function fetchOgMetadataAndImagesAndUploadToAWS(url, urlHashKey,
   }
   ogInfo['results']['data']['ogImage'] = ogInfoRobot['results']['data']['ogImage']
   ogInfo['results']['data']['urlHashKey'] = urlHashKey
+  ogInfo['results']['data']['productCategory'] = getProductCategory(ogInfo['results']['data']['ogTitle'])
 
   let [successInGettingPrice, price] = getPrice(
       HTMLParser.parse(ogInfoRobot['response'].body.toString()))
@@ -469,6 +489,7 @@ module.exports.getPrice = getPrice
 module.exports.getAmazonCategoryToEpaCategoryMap = getAmazonCategoryToEpaCategoryMap
 module.exports.getEpaCategoryToCarbonFootprintMap = getEpaCategoryToCarbonFootprintMap
 module.exports.getCarbonFootprintInGrams = getCarbonFootprintInGrams
+module.exports.getProductCategory = getProductCategory
 // module.exports.createShotStack = createShotStack
 // module.exports.getShotStack = getShotStack
 // module.exports.processReaction = processReaction
