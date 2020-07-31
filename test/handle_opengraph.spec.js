@@ -1,4 +1,4 @@
-let handle_opengraph = require("../handle_opengraph");
+let handle_opengraph = require("../src/handle_opengraph");
 
 const chai = require('chai')
 const expect = chai.expect;
@@ -62,11 +62,10 @@ describe('Handle Opengraph', function () {
       let files = await getTestFiles()
       files.forEach(fileName => {
         let ogInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'og_info', fileName.split(".")[0] + ".json")))
-        let category = handle_opengraph.getProductCategory(ogInfo['ogTitle'])
+        let category = handle_opengraph.getProductCategory(ogInfo.ogTitle)
         console.log("category=", category);
         expect(category).to.not.equal("UNKNOWN");
       })
     });
   });
 });
-

@@ -1,11 +1,12 @@
-let app = require("./app")
+import {app} from "./app";
+
 
 if (process.env.START_SERVER === 'true') {
-  app.listen(process.env.SERVER_PORT , async function () {
+  app.listen(process.env.SERVER_PORT , async () => {
     console.log('Listening on port 3000')
   })
 
-  process.on('exit', async function () {
+  process.on('exit', async () => {
     console.log('index.ts received exit event')
   })
 }
