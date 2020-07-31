@@ -1,24 +1,28 @@
-let handle_opengraph = require("../src/handle_opengraph");
 
-const chai = require('chai')
+import chai from 'chai'
 const expect = chai.expect;
 
-const path = require('path');
-const fs = require('fs');
-const HTMLParser = require('node-html-parser');
+import path from 'path'
+import fs from 'fs'
+import {parse}  from 'node-html-parser'
+import {
+  getAmazonCategoryToEpaCategoryMap, getCarbonFootprintInGrams,
+  getEpaCategoryToCarbonFootprintMap,
+  getPrice, getProductCategory
+} from "../src/handle_opengraph";
 
-async function getTestFiles(){
+async function getTestFiles() : Promise<string[]> {
   const directoryPath = path.join(__dirname, 'pages');
 
   return new Promise((resolve, reject) => {
-    let results = []
-    fs.readdir(directoryPath, function (err, files) {
+    let results: string[] = []
+    fs.readdir(directoryPath, function (err: any, files: string[]) {
       //handling error
       if (err) {
         reject(err)
       }
       //listing all files using forEach
-      files.forEach(function (file) {
+      files.forEach(function (file: string) {
         results.push(file)
       });
       resolve(results)
@@ -29,10 +33,10 @@ describe('Handle Opengraph', function () {
   describe('#getPrice', async function () {
     it('should get the same values as what has been cached', async function () {
       let files = await getTestFiles()
-      files.forEach(fileName => {
-        let html = fs.readFileSync(path.join(__dirname, 'pages', fileName))
-        let ogInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'og_info', fileName.split(".")[0] + ".json")))
-        let [successInGettingPrice, price] = handle_opengraph.getPrice(HTMLParser.parse(html))
+      files.forEach((fileName: string) => {
+        let html = fs.readFileSync(path.join(__dirname, 'pages', fileName)).toString()
+        let ogInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'og_info', fileName.split(".")[0] + ".json")).toString())
+        let [successInGettingPrice, price] = getPrice(parse(html))
         expect(successInGettingPrice).to.equal(true)
         expect(successInGettingPrice).to.equal(ogInfo.pricingInfo.successInGettingPrice)
         expect(price).to.equal(ogInfo.pricingInfo.price)
@@ -41,19 +45,19 @@ describe('Handle Opengraph', function () {
   });
   describe('#getAmazonCategoryToEpaCategoryMap', async function () {
     it('should generate the expected map', async function () {
-      let map = await handle_opengraph.getAmazonCategoryToEpaCategoryMap()
+      let map = await getAmazonCategoryToEpaCategoryMap()
       console.log(map)
     });
   });
   describe('#getAmazonCategoryToEpaCategoryMap', async function () {
     it('should generate the expected map', async function () {
-      let map = await handle_opengraph.getEpaCategoryToCarbonFootprintMap()
+      let map = await getEpaCategoryToCarbonFootprintMap()
       console.log(map)
     });
   });
   describe('#getCarbonFootprintInGrams', async function () {
     it('should generate the expected map', async function () {
-      let footprint = await handle_opengraph.getCarbonFootprintInGrams({value: 1.00}, "Personal Computer")
+      let footprint = await getCarbonFootprintInGrams({value: 1.00}, "Personal Computer")
       console.log(footprint)
     });
   });
@@ -61,8 +65,8 @@ describe('Handle Opengraph', function () {
     it('should generate the expected map', async function () {
       let files = await getTestFiles()
       files.forEach(fileName => {
-        let ogInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'og_info', fileName.split(".")[0] + ".json")))
-        let category = handle_opengraph.getProductCategory(ogInfo.ogTitle)
+        let ogInfo = JSON.parse(fs.readFileSync(path.join(__dirname, 'og_info', fileName.split(".")[0] + ".json")).toString())
+        let category = getProductCategory(ogInfo.ogTitle)
         console.log("category=", category);
         expect(category).to.not.equal("UNKNOWN");
       })

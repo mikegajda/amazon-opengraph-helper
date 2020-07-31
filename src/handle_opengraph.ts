@@ -62,7 +62,7 @@ export async function checkIfFileExistsInS3(filename: string) {
   })
 }
 
-function getProductCategory(ogTitle: string) {
+export function getProductCategory(ogTitle: string) {
   let ogTitleSplit = ogTitle.split(" : ")
   try {
     if (ogTitleSplit.length >= 2) {
@@ -248,7 +248,7 @@ export async function getCarbonFootprintInGrams(parsedPrice: any, amazonCategory
   }
 }
 
-function getPrice(root: HTMLElement): [boolean, string] {
+export function getPrice(root: HTMLElement): [boolean, string] {
   try {
     if (root.querySelector('#priceblock_dealprice')) {
       const price = root.querySelector(
