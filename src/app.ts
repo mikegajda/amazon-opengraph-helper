@@ -6,15 +6,23 @@ import {getPriceForUrl} from "./carbonCalculator";
 
 export const app = express();
 
-const allowedDomains = ["https://mikegajda.com", "https://michaelgajda.com", /\.mikegajda\.com$/, /\.michaelgajda\.com$/, /\.mikegajda\.netlify\.app$/]
+const allowedDomains = [
+  "https://mikegajda.com",
+  "https://michaelgajda.com",
+  /\.mikegajda\.com$/,
+  /\.michaelgajda\.com$/,
+  /\.mikegajda\.netlify\.app$/
+]
 app.use(express.json())
 app.use(cors({
-  origin: allowedDomains
-}))
+               origin: allowedDomains
+             }))
 
 const router = express.Router()
 router.get('/opengraph-info', async (req, res) => {
-  const response = await processUrl(req.query.url as string, req.query.breakCache === "true", req.query.writeFiles === "true")
+  const response = await processUrl(req.query.url as string,
+                                    req.query.breakCache === "true",
+                                    req.query.writeFiles === "true")
   res.json(response);
 });
 
