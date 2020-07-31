@@ -5,11 +5,11 @@ const expect = chai.expect;
 import path from 'path'
 import fs from 'fs'
 import {parse}  from 'node-html-parser'
+import {getProductCategory} from "../src/productInfo";
 import {
   getAmazonCategoryToEpaCategoryMap, getCarbonFootprintInGrams,
-  getEpaCategoryToCarbonFootprintMap,
-  getPrice, getProductCategory
-} from "../src/handle_opengraph";
+  getEpaCategoryToCarbonFootprintMap, getPrice
+} from "../src/carbonCalculator";
 
 async function getTestFiles() : Promise<string[]> {
   const directoryPath = path.join(__dirname, 'pages');

@@ -2,7 +2,7 @@
   "name": "opengraph-helper",
   "version": "1.0.0",
   "description": "",
-  "main": "src/handle_opengraph.ts",
+  "main": "src/handleOpengraph.ts",
   "scripts": {
     "prebuild": "tslint -c tslint.json -p tsconfig.json --fix",
     "build": "tsc",

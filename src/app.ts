@@ -1,7 +1,8 @@
 import express from 'express'
 import serverless from 'serverless-http'
 import cors from 'cors'
-import {getPriceForUrl, processUrl} from "./handle_opengraph";
+import {processUrl} from "./utils";
+import {getPriceForUrl} from "./carbonCalculator";
 
 export const app = express();
 
