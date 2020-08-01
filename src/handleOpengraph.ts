@@ -1,3 +1,4 @@
+// @ts-ignore
 import ogs from 'open-graph-scraper'
 import fs from 'fs'
 import Jimp from 'jimp'
@@ -5,25 +6,55 @@ import parse from 'node-html-parser'
 import parseCurrency from 'parsecurrency'
 import {getProductCategory} from "./productInfo";
 import {uploadBufferToAmazon} from "./aws";
-import {extractHostname, fixTitle} from "./utils";
-import {getPrice} from "./carbonCalculator";
+import {
+  extractHostname,
+  fixTitle,
+  getUrlHashKey,
+  instanceOfCustomSuccessResult,
+} from "./utils";
+import {getCarbonFootprintInGrams, getPrice} from "./carbonCalculator";
+import {CustomSuccessResult, IOpenGraphInfo} from "./models/IOpenGraphInfo";
+import {PassThrough} from "stream";
+import {ICustomParsedCurrency} from "./models/ICustomParsedCurrency";
 
 
-export async function getOpenGraphInfo(urlToProcess: string, useRobotUserAgent = false) {
+export async function getOpenGraphInfo(urlToProcess: string,
+                                       useRobotUserAgent = false): Promise<IOpenGraphInfo> {
+  const [cleanedUrl, urlHashKey] = getUrlHashKey(urlToProcess);
   return new Promise((resolve, reject) => {
     const options: any = {
       url: urlToProcess
     }
     if (useRobotUserAgent) {
       options.headers = {
-        'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+        'user-agent': 'Googlebot/2.1 (+http://www.google.com/bot.html)'
       }
     }
-    ogs(options,  (error, results, response) => {
-      resolve({
-        results,
-        response
-      })
+    ogs(options, (error: boolean, results: any, response: PassThrough) => {
+      console.log('results=', results)
+      if (!error){
+        const customResult: CustomSuccessResult = {
+          error: false,
+          ogResult: results.data,
+          productInfo: {
+            productCategory: undefined
+          },
+          co2eFootprint: {
+            imperial: {
+              value: undefined
+            }
+          },
+          response,
+          urlHashKey,
+        }
+        if (customResult.ogResult.ogUrl === undefined){
+          customResult.ogResult.ogUrl = cleanedUrl;
+        }
+        resolve(customResult)
+      }
+      else {
+        resolve(results)
+      }
     });
   })
 }
@@ -60,7 +91,7 @@ export async function processOgData(ogData: any, urlHashKey: string) {
     console.log("got image buffers")
 
     const imageBufferAwsPromise: any = uploadBufferToAmazon(imageBuffer,
-        `${urlHashKey}.jpg`);
+                                                            `${urlHashKey}.jpg`);
 
     // let igStoryBufferBufferAwsPromise = uploadBufferToAmazon(igStoryBuffer,
     //     `${urlHashKey}_ig_story.jpg`)
@@ -86,51 +117,55 @@ export async function processOgData(ogData: any, urlHashKey: string) {
   }
 
   awsResponse = await uploadBufferToAmazon(JSON.stringify(ogData),
-      urlHashKey + ".json");
+                                           urlHashKey + ".json");
   console.log("awsResponse=", awsResponse.Location);
   return ogData;
 }
 
 export async function fetchOgMetadataAndImagesAndUploadToAWS(urlToProcess: string, urlHashKey: string,
-                                                      writeHtmlToTestFolder = true) {
+                                                             writeHtmlToTestFolder = true) {
 
-  const ogInfo: any = await getOpenGraphInfo(urlToProcess, false);
-  const ogInfoRobot: any = await getOpenGraphInfo(urlToProcess, true);
+  const ogInfo: IOpenGraphInfo = await getOpenGraphInfo(urlToProcess, false);
+  const ogInfoRobot: IOpenGraphInfo = await getOpenGraphInfo(urlToProcess, true);
 
-  if (writeHtmlToTestFolder) {
-    fs.writeFileSync(`test/pages/${urlHashKey}.html`,
-        ogInfoRobot.response.body.toString());
+  console.log("ogInfo=", ogInfo)
+  console.log("ogInfoRobot=", ogInfoRobot)
+
+  if (instanceOfCustomSuccessResult(ogInfo) && instanceOfCustomSuccessResult(ogInfoRobot)){
+    if (writeHtmlToTestFolder) {
+      fs.writeFileSync(`test/pages/${urlHashKey}.html`,
+                       ogInfoRobot.response.body.toString());
+    }
+
+    // console.log("ogInfo['results']=", ogInfo['results'])
+    // console.log("ogInfo['response']=", ogInfo['response']['childNodes'][1])
+
+    ogInfo.ogResult.ogImage = ogInfoRobot.ogResult.ogImage
+    ogInfo.productInfo.productCategory = getProductCategory(ogInfo.ogResult.ogTitle)
+
+
+    const [successInGettingPrice, price] = getPrice(
+        parse(ogInfoRobot.response.body.toString()))
+    if (successInGettingPrice){
+      ogInfo.productInfo.price = successInGettingPrice ? parseCurrency(price) : undefined
+
+      ogInfo.co2eFootprint.imperial.value =
+          await getCarbonFootprintInGrams(ogInfo.productInfo.price, ogInfo.productInfo.productCategory)
+
+    }
+
+    console.log("price=", price)
+    if (writeHtmlToTestFolder) {
+      fs.writeFileSync(`test/og_info/${urlHashKey}.json`,
+                       JSON.stringify(ogInfo));
+    }
+    await processOgData(ogInfo.ogResult, urlHashKey)
+    ogInfo.response = undefined;
+    return ogInfo;
   }
-
-  // console.log("ogInfo['results']=", ogInfo['results'])
-  // console.log("ogInfo['response']=", ogInfo['response']['childNodes'][1])
-  // if there is no urlToProcess in the metadata, use the one that was requested from
-  if (ogInfo.results.data.ogUrl === undefined) {
-    ogInfo.results.data.ogUrl = urlToProcess
-  }
-  ogInfo.results.data.ogImage = ogInfoRobot.results.data.ogImage
-  ogInfo.results.data.urlHashKey = urlHashKey
-  ogInfo.results.data.productCategory = getProductCategory(ogInfo.results.data.ogTitle)
-
-  const [successInGettingPrice, price] = getPrice(
-      parse(ogInfoRobot.response.body.toString()))
-  ogInfo.results.data.pricingInfo = {
-    successInGettingPrice,
-    parsedPrice: successInGettingPrice ? parseCurrency(price) : undefined,
-    price: successInGettingPrice ? price : undefined
-  }
-  console.log("price=", price)
-  if (writeHtmlToTestFolder) {
-    fs.writeFileSync(`test/og_info/${urlHashKey}.json`,
-        JSON.stringify(ogInfo.results.data));
-  }
-
-  // console.log("ogInfo=", JSON.stringify(ogInfo))
-
-  if (ogInfo.results.success) {
-    ogInfo.results.data.success = true
-    return await processOgData(ogInfo.results.data, urlHashKey)
-  } else {
+  else {
+    console.error(ogInfo.error)
+    console.error(ogInfoRobot.error)
     return {
       success: false,
       ogUrl: urlToProcess
@@ -172,7 +207,7 @@ export async function processIgStoryImageToBuffer(ogData: any, ogImage: any, bac
     console.log("igStory lineCount", lines)
     outputImage = await outputImage.print(urlFont, 80, 580, extractedUrl, maxWidth);
     outputImage = await outputImage.print(titleFont, 80, titleY, title,
-        maxWidth);
+                                          maxWidth);
   }
 
   return await outputImage.getBufferAsync("image/jpeg");
@@ -224,7 +259,7 @@ export async function processIgFeedImageToBuffer(ogData: any, ogImage: any, back
   // here, the y value is just slightly less than 30 + titleHeight on purpose, so that
   // the extractedUrl looks more attached to the title
   outputImage = await outputImage.print(urlFont, 30, 22 + titleHeight, extractedUrl,
-      1020);
+                                        1020);
 
   return await outputImage.getBufferAsync("image/jpeg");
 

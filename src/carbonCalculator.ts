@@ -4,6 +4,7 @@ import stringHash from "string-hash";
 import parse from "node-html-parser";
 import parseCurrency from "parsecurrency";
 import HTMLElement from "node-html-parser/dist/nodes/html";
+import {ICustomParsedCurrency} from "./models/ICustomParsedCurrency";
 
 export async function getAmazonCategoryToEpaCategoryMap() {
   const gSheetUrl = 'https://spreadsheets.google.com/feeds/cells/1cf76iwzx03XqE_jqq8XGlPv710RGqnSLGG-updJhy1I/1/public/full?alt=json'
@@ -35,7 +36,7 @@ export async function getEpaCategoryToCarbonFootprintMap() {
   return result
 }
 
-export async function getCarbonFootprintInGrams(parsedPrice: any, amazonCategory: string) {
+export async function getCarbonFootprintInGrams(parsedPrice: ICustomParsedCurrency, amazonCategory: string) {
   const amazonCategoryToEPACategoryMap: any = await getAmazonCategoryToEpaCategoryMap();
   // epa category -> kg co2 e / $
   const epaCategoryToCarbonFootprintMap: any = await getEpaCategoryToCarbonFootprintMap();
@@ -49,14 +50,15 @@ export async function getCarbonFootprintInGrams(parsedPrice: any, amazonCategory
     console.log('epaCategory=', epaCategory)
 
     const epaCategoryCarbonFootprint = epaCategoryToCarbonFootprintMap[epaCategory]
-    console.log('epaCategoryFootrpint=', epaCategoryCarbonFootprint)
+    console.log('epaCategoryFootprint=', epaCategoryCarbonFootprint)
 
     const result = priceInDollars2013 * epaCategoryCarbonFootprint * 1000
     console.log('result=', result)
   } else {
-    //
-    const defaultCarbonFootprint = 0.10
-    return priceInDollars2013 * defaultCarbonFootprint * 1000
+    // https://sustainability.aboutamazon.com/environment/sustainable-operations/carbon-footprint
+    // the minimum co2e footprint per $1 is 122.8 in 2020 dollars
+    const defaultCarbonFootprint = 0.1228
+    return priceInDollarsToday * defaultCarbonFootprint * 1000
   }
 }
 

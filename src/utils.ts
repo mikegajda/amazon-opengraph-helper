@@ -2,6 +2,7 @@ import stringHash from "string-hash";
 import {checkIfFileExistsInS3, getFileInS3} from "./aws";
 import url from "url";
 import {fetchOgMetadataAndImagesAndUploadToAWS} from "./handleOpengraph";
+import {CustomSuccessResult} from "./models/IOpenGraphInfo";
 
 export function cleanUrl(urlToClean: string) {
   const parsedUrl = url.parse(urlToClean);
@@ -10,9 +11,14 @@ export function cleanUrl(urlToClean: string) {
   return cleanedUrl
 }
 
-export async function processUrl(urlToParse: string, breakCache: boolean, writeFiles: boolean) {
+export function getUrlHashKey(urlToParse: string){
   const cleanedUrl = cleanUrl(urlToParse).toString()
   const urlHashKey = stringHash(cleanedUrl).toString()
+  return [cleanedUrl, urlHashKey]
+}
+
+export async function processUrl(urlToParse: string, breakCache: boolean, writeFiles: boolean) {
+  const [cleanedUrl, urlHashKey] = getUrlHashKey(urlToParse)
 
   const existsInS3 = await checkIfFileExistsInS3(`${urlHashKey}.json`)
   if (existsInS3 && !breakCache) {
@@ -30,6 +36,10 @@ export async function processUrl(urlToParse: string, breakCache: boolean, writeF
         urlHashKey, writeFiles)
     return response
   }
+}
+
+export function instanceOfCustomSuccessResult(object: any): object is CustomSuccessResult {
+  return object.error === false;
 }
 
 export function extractHostname(urlToProcess: string) {
