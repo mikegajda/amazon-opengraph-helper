@@ -169,8 +169,9 @@ export async function fetchOgMetadataAndImagesAndUploadToAWS(urlToProcess: strin
       fs.writeFileSync(`test/og_info/${urlHashKey}.json`,
                        JSON.stringify(ogInfo));
     }
-    await processOgData(ogInfo, urlHashKey)
     ogInfo.response = undefined;
+
+    await processOgData(ogInfo, urlHashKey)
     return ogInfo;
   } else {
     console.error(ogInfo.error)
