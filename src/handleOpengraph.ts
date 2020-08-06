@@ -29,6 +29,8 @@ export async function getOpenGraphInfo(urlToProcess: string,
     const userAgents = [
       'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
       'Googlebot/2.1 (+http://www.google.com/bot.html)',
+      //'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0;
+      // +http://www.bing.com/bingbot.htm) Chrome/W.X.Y.Z Safari/537.36 Edg/W.X.Y.Z'
       //  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/600.2.5 (KHTML, like Gecko) Version/8.0.2
       // Safari/600.2.5 (Applebot/0.1)'
       // 'Mozilla/5.0 (Linux; Android 4.2.1; en-us; Nexus 5 Build/JOP40D) AppleWebKit/535.19 (KHTML, like Gecko;
