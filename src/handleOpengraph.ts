@@ -267,8 +267,8 @@ export async function processIgFeedImageToBuffer(ogData: IOpenGraphInfo, ogImage
 
   let outputImage = background.composite(ogImage, 786, 100);
 
-  const shoppingBasket = await Jimp.read('https://s3.amazonaws.com/cdn.carboncalculator.org/icons/shopping-basket.png')
-  outputImage = outputImage.composite(shoppingBasket, 842, 284);
+  const add = await Jimp.read('https://s3.amazonaws.com/cdn.carboncalculator.org/icons/add.png')
+  outputImage = outputImage.composite(add, 842, 284);
 
   const speaker = await Jimp.read('https://s3.amazonaws.com/cdn.carboncalculator.org/icons/speaker.png')
   outputImage = outputImage.composite(speaker, 71, 583);
@@ -315,7 +315,13 @@ export async function processIgFeedImageToBuffer(ogData: IOpenGraphInfo, ogImage
     text: estimateText2
   }, 862)
 
-  const co2disclaimerText = `(That's 257kg of CO2e)`
+  const grams = ogData.co2eFootprint.metric.value
+  const kilograms = grams / 1000;
+  const kilogramsText = `${kilograms.toLocaleString(undefined, {
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0
+  })}`
+  const co2disclaimerText = `(That's ${kilogramsText}kg of CO2e)`
   outputImage = outputImage.print(ebGaramond35Italic, 240, 716, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
