@@ -12,6 +12,6 @@ export function getProductCategory(ogTitle: string) {
     }
   } catch {
     console.log("i'm here")
-    return "UNKOWN"
+    return "UNKNOWN"
   }
 }
