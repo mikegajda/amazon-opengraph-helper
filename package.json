@@ -15,11 +15,12 @@
   "dependencies": {
     "aws-sdk": "^2.678.0",
     "chai": "^4.2.0",
-    "convert-units": "^2.3.4",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "got": "^11.5.1",
     "jimp": "^0.12.1",
+    "lodash.foreach": "^4.5.0",
+    "lodash.keys": "^4.2.0",
     "mocha": "^8.0.1",
     "node-fetch": "^2.6.0",
     "node-html-parser": "^1.2.20",

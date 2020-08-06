@@ -10,6 +10,7 @@ import {
   getAmazonCategoryToEpaCategoryMap, getCarbonFootprintInGrams,
   getEpaCategoryToCarbonFootprintMap, getPrice
 } from "../src/carbonCalculator";
+import {convertGramsToHumanReadable} from "../src/convertUnits";
 
 async function getTestFiles() : Promise<string[]> {
   const directoryPath = path.join(__dirname, 'pages');
@@ -55,12 +56,12 @@ describe('Handle Opengraph', function () {
       console.log(map)
     });
   });
-  describe('#getCarbonFootprintInGrams', async function () {
-    it('should generate the expected map', async function () {
-      let footprint = await getCarbonFootprintInGrams({value: 1.00}, "Personal Computer")
-      console.log(footprint)
-    });
-  });
+  // describe('#getCarbonFootprintInGrams', async function () {
+  //   it('should generate the expected map', async function () {
+  //     let footprint = await getCarbonFootprintInGrams({value: 1.00}, "Personal Computer")
+  //     console.log(footprint)
+  //   });
+  // });
   describe('#getProductCategory', async function () {
     it('should generate the expected map', async function () {
       let files = await getTestFiles()
@@ -70,6 +71,14 @@ describe('Handle Opengraph', function () {
         console.log("category=", category);
         expect(category).to.not.equal("UNKNOWN");
       })
+    });
+  });
+
+  describe('#convertKgToHumanReadable', async function () {
+    it('should generate the expected map', async function () {
+      let g = 1000;
+      let result = convertGramsToHumanReadable(g);
+      console.log("result={}", result);
     });
   });
 });

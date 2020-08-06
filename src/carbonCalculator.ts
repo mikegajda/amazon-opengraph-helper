@@ -52,13 +52,13 @@ export async function getCarbonFootprintInGrams(parsedPrice: ICustomParsedCurren
     const epaCategoryCarbonFootprint = epaCategoryToCarbonFootprintMap[epaCategory]
     console.log('epaCategoryFootprint=', epaCategoryCarbonFootprint)
 
-    const result = priceInDollars2013 * epaCategoryCarbonFootprint * 1000
+    const result = priceInDollars2013 * epaCategoryCarbonFootprint
     console.log('result=', result)
   } else {
     // https://sustainability.aboutamazon.com/environment/sustainable-operations/carbon-footprint
     // the minimum co2e footprint per $1 is 122.8 in 2020 dollars
-    const defaultCarbonFootprint = 0.1228
-    return priceInDollarsToday * defaultCarbonFootprint * 1000
+    const defaultCarbonFootprint = 122.8
+    return priceInDollarsToday * defaultCarbonFootprint
   }
 }
 

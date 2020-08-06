@@ -3,6 +3,7 @@ import serverless from 'serverless-http'
 import cors from 'cors'
 import {processUrl} from "./utils";
 import {getPriceForUrl} from "./carbonCalculator";
+import {convertGramsToHumanReadable} from "./convertUnits";
 
 export const app = express();
 
@@ -31,6 +32,10 @@ router.get('/get-price', async (req, res) => {
   res.json(response);
 });
 
+router.get('/human-readable-mass', async (req, res) => {
+  const response = await convertGramsToHumanReadable(Number.parseFloat(req.query.weight as string))
+  res.json(response);
+});
 // point the base route at the router
 app.use('/', router)
 

@@ -16,6 +16,7 @@ import {getCarbonFootprintInGrams, getPrice} from "./carbonCalculator";
 import {CustomSuccessResult, IOpenGraphInfo} from "./models/IOpenGraphInfo";
 import {PassThrough} from "stream";
 import {ICustomParsedCurrency} from "./models/ICustomParsedCurrency";
+import {convertGramsToHumanReadable} from "./convertUnits";
 
 
 export async function getOpenGraphInfo(urlToProcess: string,
@@ -32,7 +33,7 @@ export async function getOpenGraphInfo(urlToProcess: string,
     }
     ogs(options, (error: boolean, results: any, response: PassThrough) => {
       console.log('results=', results)
-      if (!error){
+      if (!error) {
         const customResult: CustomSuccessResult = {
           error: false,
           ogResult: results.data,
@@ -40,30 +41,33 @@ export async function getOpenGraphInfo(urlToProcess: string,
             productCategory: undefined
           },
           co2eFootprint: {
-            imperial: {
+            metric: {
+              value: undefined,
+              unit: 'g'
+            },
+            humanReadable: {
               value: undefined
             }
           },
           response,
           urlHashKey,
         }
-        if (customResult.ogResult.ogUrl === undefined){
+        if (customResult.ogResult.ogUrl === undefined) {
           customResult.ogResult.ogUrl = cleanedUrl;
         }
         resolve(customResult)
-      }
-      else {
+      } else {
         resolve(results)
       }
     });
   })
 }
 
-export async function processOgData(ogData: any, urlHashKey: string) {
+export async function processOgData(ogData: IOpenGraphInfo, urlHashKey: string) {
   let awsResponse: any
 
-  if (ogData.ogImage && ogData.ogImage.url) {
-    let ogImage = await Jimp.read(ogData.ogImage.url)
+  if (ogData.ogResult.ogImage && ogData.ogResult.ogImage.url) {
+    let ogImage = await Jimp.read(ogData.ogResult.ogImage.url)
     if (ogImage.getWidth() > 1080) {
       ogImage = ogImage.resize(1080, Jimp.AUTO);
     }
@@ -72,11 +76,9 @@ export async function processOgData(ogData: any, urlHashKey: string) {
     const imageBufferPromise = ogImage.getBufferAsync("image/jpeg");
 
     // let pollyBufferPromise = getPollySpeechBufferForText(ogData.ogTitle);
-    // let igFeedBufferPromise = processIgFeedImageToBuffer(ogData, ogImage,
-    //     backgroundColor, includeReaction, reactionImage);
+    const igFeedBufferPromise = processIgFeedImageToBuffer(ogData, ogImage);
     // //
-    // // let igFeedWhiteTextBufferPromise = processIgFeedImageToBuffer(ogData, ogImage,
-    // //     backgroundColor, '-white');
+    // let igFeedWhiteTextBufferPromise = processIgFeedImageToBuffer(ogData, ogImage);
     //
     // let igStoryBufferPromise = processIgStoryImageToBuffer(ogData, ogImage,
     //     backgroundColor,  includeReaction, reactionImage, true);
@@ -85,8 +87,10 @@ export async function processOgData(ogData: any, urlHashKey: string) {
     //     ogImage,
     //     backgroundColor, false, reactionImage, true);
 
-    const [imageBuffer, igFeedBuffer, igStoryBuffer, igStoryWithoutTextBuffer, pollyBuffer] = await Promise.all(
-        [imageBufferPromise])
+    const [imageBuffer, igFeedBuffer,
+      // igStoryBuffer, igStoryWithoutTextBuffer, pollyBuffer
+    ] = await Promise.all(
+        [imageBufferPromise, igFeedBufferPromise])
     // igFeedBufferPromise, igStoryBufferPromise, igStoryBufferWithoutTextPromise, pollyBufferPromise])
     console.log("got image buffers")
 
@@ -100,8 +104,8 @@ export async function processOgData(ogData: any, urlHashKey: string) {
     //     igStoryWithoutTextBuffer,
     //     `${urlHashKey}_ig_story_without_text.jpg`)
     //
-    // let igFeedBufferBufferAwsPromise = uploadBufferToAmazon(igFeedBuffer,
-    //     `${urlHashKey}_ig_feed.jpg`);
+    const igFeedBufferBufferAwsPromise : any = uploadBufferToAmazon(igFeedBuffer,
+        `${urlHashKey}_ig_feed.jpg`);
 
     // let igFeedWhiteTextBufferBufferAwsPromise = uploadBufferToAmazon(igFeedWhiteTextBuffer,
     //     `${urlHashKey}_ig_feed_white_text.jpg`);
@@ -109,11 +113,14 @@ export async function processOgData(ogData: any, urlHashKey: string) {
     // let pollyBufferAwsPromise = uploadBufferToAmazon(pollyBuffer,
     //     `${urlHashKey}.mp3`);
 
-    const [response1, response2, response3, response4, response5, response6] = await Promise.all(
-        [imageBufferAwsPromise])
+    const [response1, response2,
+      // response3, response4, response5, response6
+      ] = await Promise.all(
+        [imageBufferAwsPromise, igFeedBufferBufferAwsPromise])
     console.log("awsResponse=", response1.Location);
+    console.log("awsResponse=", response2.Location);
 
-    ogData.processedImageHash = `${urlHashKey}.jpg`
+    // ogData.processedImageHash = `${urlHashKey}.jpg`
   }
 
   awsResponse = await uploadBufferToAmazon(JSON.stringify(ogData),
@@ -131,7 +138,7 @@ export async function fetchOgMetadataAndImagesAndUploadToAWS(urlToProcess: strin
   console.log("ogInfo=", ogInfo)
   console.log("ogInfoRobot=", ogInfoRobot)
 
-  if (instanceOfCustomSuccessResult(ogInfo) && instanceOfCustomSuccessResult(ogInfoRobot)){
+  if (instanceOfCustomSuccessResult(ogInfo) && instanceOfCustomSuccessResult(ogInfoRobot)) {
     if (writeHtmlToTestFolder) {
       fs.writeFileSync(`test/pages/${urlHashKey}.html`,
                        ogInfoRobot.response.body.toString());
@@ -146,11 +153,14 @@ export async function fetchOgMetadataAndImagesAndUploadToAWS(urlToProcess: strin
 
     const [successInGettingPrice, price] = getPrice(
         parse(ogInfoRobot.response.body.toString()))
-    if (successInGettingPrice){
+    if (successInGettingPrice) {
       ogInfo.productInfo.price = successInGettingPrice ? parseCurrency(price) : undefined
 
-      ogInfo.co2eFootprint.imperial.value =
-          await getCarbonFootprintInGrams(ogInfo.productInfo.price, ogInfo.productInfo.productCategory)
+      const carbonFootprintInGrams = await getCarbonFootprintInGrams(ogInfo.productInfo.price,
+                                                                     ogInfo.productInfo.productCategory);
+      ogInfo.co2eFootprint.metric.value = carbonFootprintInGrams;
+      ogInfo.co2eFootprint.humanReadable.value = convertGramsToHumanReadable(carbonFootprintInGrams);
+
 
     }
 
@@ -159,11 +169,10 @@ export async function fetchOgMetadataAndImagesAndUploadToAWS(urlToProcess: strin
       fs.writeFileSync(`test/og_info/${urlHashKey}.json`,
                        JSON.stringify(ogInfo));
     }
-    await processOgData(ogInfo.ogResult, urlHashKey)
+    await processOgData(ogInfo, urlHashKey)
     ogInfo.response = undefined;
     return ogInfo;
-  }
-  else {
+  } else {
     console.error(ogInfo.error)
     console.error(ogInfoRobot.error)
     return {
@@ -214,52 +223,122 @@ export async function processIgStoryImageToBuffer(ogData: any, ogImage: any, bac
 
 }
 
-export async function processIgFeedImageToBuffer(ogData: any, ogImage: any, backgroundColor: string,
-                                                 includeReaction: boolean, reactionImage: any) {
+export async function processIgFeedImageToBuffer(ogData: IOpenGraphInfo, ogImage: any) {
   // generated with https://ttf2fnt.com/
-  const titleFont = await Jimp.loadFont(
-      `https://s3.amazonaws.com/cdn.mikegajda.com/GothicA1-SemiBold-50/GothicA1-SemiBold.ttf.fnt`);
-  const urlFont = await Jimp.loadFont(
-      `https://s3.amazonaws.com/cdn.mikegajda.com/GothicA1-Regular-32/GothicA1-Regular.ttf.fnt`);
+  const workSans30 = await Jimp.loadFont(
+      `https://s3.amazonaws.com/cdn.carboncalculator.org/WorkSans-VariableFont_wght.ttf/WorkSans-VariableFont_wght.ttf.fnt`);
+  const ebGaramond100 = await Jimp.loadFont(
+      `https://s3.amazonaws.com/cdn.carboncalculator.org/EBGaramond-SemiBold-100/EBGaramond-SemiBold.ttf.fnt`);
+  const ebGaramond50 = await Jimp.loadFont(
+      `https://s3.amazonaws.com/cdn.carboncalculator.org/EBGaramond-SemiBold-50/EBGaramond-SemiBold.ttf.fnt`);
+  const ebGaramond35Italic = await Jimp.loadFont(
+      `https://s3.amazonaws.com/cdn.carboncalculator.org/EBGaramond-Italic-35/EBGaramond-Italic.ttf.fnt`);
+  // const extractedUrl = extractHostname(ogData.ogUrl)
 
-  const extractedUrl = extractHostname(ogData.ogUrl)
-  const title = fixTitle(ogData.ogTitle)
+  //
+  // const titleHeight = Jimp.measureTextHeight(titleFont, title, 1020);
+  // const lineHeight = 63;
+  // const linesCount = titleHeight / lineHeight;
+  //
+  // console.log("titleHeight=", titleHeight)
+  // console.log("linesCount=", linesCount)
 
-  const titleHeight = Jimp.measureTextHeight(titleFont, title, 1020);
-  const lineHeight = 63;
-  const linesCount = titleHeight / lineHeight;
-
-  console.log("titleHeight=", titleHeight)
-  console.log("linesCount=", linesCount)
-
-  // this is the maximum size of the image, calculated manually
-  let maxImageHeight = 819;
-  // image should be larger if we don't have a reaction
-  if (!includeReaction) {
-    maxImageHeight += 135
-  }
-  const imageHeight = maxImageHeight - (linesCount * lineHeight)
-  // this is the minimum y axis value, based on the number of lines, this should go up
-  // calculated this manually
-  const minImageYAxis = 82;
-  const imageYAxis = minImageYAxis + (linesCount * lineHeight)
+  // // this is the maximum size of the image, calculated manually
+  // let maxImageHeight = 819;
+  // // image should be larger if we don't have a reaction
+  // const imageHeight = maxImageHeight - (linesCount * lineHeight)
+  // // this is the minimum y axis value, based on the number of lines, this should go up
+  // // calculated this manually
+  // const minImageYAxis = 82;
+  // const imageYAxis = minImageYAxis + (linesCount * lineHeight)
 
   // now generate everything
-  ogImage = ogImage.cover(1080, imageHeight);
+  ogImage = ogImage.crop(166, 0, 268, 288);
+  ogImage = ogImage.cover(212, 230)
 
-  const background = await new Jimp(1080, 1080, `#${backgroundColor}`)
+  let background = await new Jimp(1080, 1080, `#FCDA90`)
+  const backgroundSecondary = await new Jimp(1080, 330, `#FCE8CF`)
+  const backgroundThird = await new Jimp(1080, 280, `#D8EC84`)
 
-  let outputImage = background.composite(ogImage, 0, imageYAxis);
+  background = background.composite(backgroundSecondary, 0, 470)
+  background = background.composite(backgroundThird, 0, 800)
 
-  if (includeReaction) {
-    outputImage = outputImage.composite(reactionImage, 130, 887)
-  }
 
-  outputImage = await outputImage.print(titleFont, 30, 30, title, 1020);
-  // here, the y value is just slightly less than 30 + titleHeight on purpose, so that
-  // the extractedUrl looks more attached to the title
-  outputImage = await outputImage.print(urlFont, 30, 22 + titleHeight, extractedUrl,
-                                        1020);
+  let outputImage = background.composite(ogImage, 786, 100);
+
+  const shoppingBasket = await Jimp.read('https://s3.amazonaws.com/cdn.carboncalculator.org/icons/shopping-basket.png')
+  outputImage = outputImage.composite(shoppingBasket, 842, 284);
+
+  const speaker = await Jimp.read('https://s3.amazonaws.com/cdn.carboncalculator.org/icons/speaker.png')
+  outputImage = outputImage.composite(speaker, 71, 583);
+
+  const plant = await Jimp.read('https://s3.amazonaws.com/cdn.carboncalculator.org/icons/plant.png')
+  outputImage = outputImage.composite(plant, 71, 826);
+
+  const heart = await Jimp.read('https://s3.amazonaws.com/cdn.carboncalculator.org/icons/heart.png')
+  outputImage = outputImage.composite(heart, 892, 948);
+
+
+  const purchasingText = 'Thinking of purchasing?'
+  outputImage = outputImage.print(workSans30, 83, 154, {
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_TOP,
+   text: purchasingText
+  }, 620)
+
+  let title = ogData.ogResult.ogTitle
+  title = fixTitle(title)
+  outputImage = outputImage.print(ebGaramond50, 55, 200, {
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_TOP,
+    text: title
+  }, 680)
+
+  const estimateText = 'We estimate creating this released the weight of'
+  outputImage = outputImage.print(workSans30, 182, 518, {
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_TOP,
+    text: estimateText
+  }, 862)
+
+  const co2HumanReadable = ogData.co2eFootprint.humanReadable.value
+  outputImage = outputImage.print(ebGaramond100, 191, 550, {
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_TOP,
+    text: co2HumanReadable
+  }, 862)
+  const estimateText2 = 'worth of carbon into the environment.'
+  outputImage = outputImage.print(workSans30, 182, 675, {
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_TOP,
+    text: estimateText2
+  }, 862)
+
+  const co2disclaimerText = `(That's 257kg of CO2e)`
+  outputImage = outputImage.print(ebGaramond35Italic, 240, 716, {
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_TOP,
+    text: co2disclaimerText
+  }, 746)
+
+  const plantText = 'Consider buying used or reusing what you have instead of buying new.'
+  outputImage = outputImage.print(ebGaramond35Italic, 210, 826, {
+    alignmentX: Jimp.HORIZONTAL_ALIGN_LEFT,
+    alignmentY: Jimp.VERTICAL_ALIGN_TOP,
+    text: plantText
+  }, 662)
+
+  const supportText = 'Enjoyed this? Give us a like to help support us and tag a friend who should know about this'
+  outputImage = outputImage.print(ebGaramond35Italic, 210, 948, {
+    alignmentX: Jimp.HORIZONTAL_ALIGN_LEFT,
+    alignmentY: Jimp.VERTICAL_ALIGN_TOP,
+    text: supportText
+  }, 674)
+  // outputImage = await outputImage.print(titleFont, 30, 30, title, 1020);
+  // // here, the y value is just slightly less than 30 + titleHeight on purpose, so that
+  // // the extractedUrl looks more attached to the title
+  // outputImage = await outputImage.print(urlFont, 30, 22 + titleHeight, extractedUrl,
+  //                                       1020);
 
   return await outputImage.getBufferAsync("image/jpeg");
 

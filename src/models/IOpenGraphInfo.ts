@@ -26,8 +26,12 @@ export interface CustomSuccessResult {
     price?: ICustomParsedCurrency
   }
   co2eFootprint: {
-    imperial: {
+    metric: {
       value: number | undefined
+      unit: string
+    }
+    humanReadable: {
+      value: string
     }
   }
 }

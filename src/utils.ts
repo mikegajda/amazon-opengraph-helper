@@ -73,5 +73,8 @@ export function fixTitle(title: string) {
   title = title.replace(/”/g, "'")
   title = title.replace(" — ", "-")
   title = title.replace(" — ", "-")
+  title = title.replace("Amazon.com: ", "")
+  title = title.replace("Amazon.com : ", "")
+  title = title.trim()
   return title
 }
