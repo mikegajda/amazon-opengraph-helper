@@ -2,7 +2,7 @@ import express from 'express'
 import serverless from 'serverless-http'
 import cors from 'cors'
 import {processUrl} from "./utils";
-import {getPriceForUrl} from "./carbonCalculator";
+import {getPriceForUrl, refreshGoogleSheetsCache} from "./carbonCalculator";
 import {convertGramsToHumanReadable} from "./convertUnits";
 
 export const app = express();
@@ -34,6 +34,11 @@ router.get('/get-price', async (req, res) => {
 
 router.get('/human-readable-mass', async (req, res) => {
   const response = await convertGramsToHumanReadable(Number.parseFloat(req.query.weight as string))
+  res.json(response);
+});
+
+router.get('/google-sheets/refresh', async (req, res) => {
+  const response = await refreshGoogleSheetsCache();
   res.json(response);
 });
 // point the base route at the router

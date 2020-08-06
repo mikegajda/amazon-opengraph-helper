@@ -5,6 +5,7 @@ import parse from "node-html-parser";
 import parseCurrency from "parsecurrency";
 import HTMLElement from "node-html-parser/dist/nodes/html";
 import {ICustomParsedCurrency} from "./models/ICustomParsedCurrency";
+import {getFileInS3, uploadBufferToAmazon} from "./aws";
 
 export async function getAmazonCategoryToEpaCategoryMap() {
   const gSheetUrl = 'https://spreadsheets.google.com/feeds/cells/1cf76iwzx03XqE_jqq8XGlPv710RGqnSLGG-updJhy1I/1/public/full?alt=json'
@@ -18,7 +19,21 @@ export async function getAmazonCategoryToEpaCategoryMap() {
       + 1].gs$cell.inputValue
     }
   }
+  await uploadBufferToAmazon(JSON.stringify(result), 'amazonCategoryToEpaCategoryMap.json')
   return result
+}
+
+export async function getAmazonCategoryToEpaCategoryMapCached() {
+  return JSON.parse(await getFileInS3('amazonCategoryToEpaCategoryMap.json'))
+}
+
+export async function refreshGoogleSheetsCache() {
+  try {
+    await Promise.all([getEpaCategoryToCarbonFootprintMap(), getAmazonCategoryToEpaCategoryMap()])
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function getEpaCategoryToCarbonFootprintMap() {
@@ -33,13 +48,21 @@ export async function getEpaCategoryToCarbonFootprintMap() {
       + 1].gs$cell.inputValue
     }
   }
+  await uploadBufferToAmazon(JSON.stringify(result), 'epaCategoryToCarbonFootprintMap.json')
   return result
 }
 
+export async function getEpaCategoryToCarbonFootprintMapCached() {
+  return JSON.parse(await getFileInS3('epaCategoryToCarbonFootprintMap.json'))
+}
+
 export async function getCarbonFootprintInGrams(parsedPrice: ICustomParsedCurrency, amazonCategory: string) {
-  const amazonCategoryToEPACategoryMap: any = await getAmazonCategoryToEpaCategoryMap();
+  const [amazonCategoryToEPACategoryMap, epaCategoryToCarbonFootprintMap] =
+      await Promise.all([
+                          getAmazonCategoryToEpaCategoryMapCached(),
+                          getEpaCategoryToCarbonFootprintMapCached()
+                        ])
   // epa category -> kg co2 e / $
-  const epaCategoryToCarbonFootprintMap: any = await getEpaCategoryToCarbonFootprintMap();
   const priceInDollarsToday = parsedPrice.value
   console.log('priceInDollarsToday=', priceInDollarsToday)
   // inflation 2013 -> 2020 = 10.7%
