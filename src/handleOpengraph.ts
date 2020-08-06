@@ -27,9 +27,11 @@ export async function getOpenGraphInfo(urlToProcess: string,
       url: urlToProcess
     }
     const userAgents = [
-      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-      'Googlebot/2.1 (+http://www.google.com/bot.html)',
-      //'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0;
+      // 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+      // 'Googlebot/2.1 (+http://www.google.com/bot.html)',
+      'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+      'facebookexternalhit/1.1'
+      // 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0;
       // +http://www.bing.com/bingbot.htm) Chrome/W.X.Y.Z Safari/537.36 Edg/W.X.Y.Z'
       //  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/600.2.5 (KHTML, like Gecko) Version/8.0.2
       // Safari/600.2.5 (Applebot/0.1)'
@@ -363,7 +365,7 @@ export async function processIgFeedImageToBuffer(ogData: IOpenGraphInfo, ogImage
     text: plantText
   }, 662)
 
-  const supportText = 'Enjoyed this? Give us a like to help support us and tag a friend who should know about this'
+  const supportText = 'Enjoyed this? Give this a like to help support us and tag a friend who should know about this.'
   outputImage = outputImage.print(ebGaramond35Italic, 210, 948, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_LEFT,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
