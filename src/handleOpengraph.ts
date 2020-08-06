@@ -32,13 +32,12 @@ export async function getOpenGraphInfo(urlToProcess: string,
       }
     }
     ogs(options, (error: boolean, results: any, response: PassThrough) => {
-      console.log('results=', results)
       if (!error) {
         const customResult: CustomSuccessResult = {
           error: false,
           ogResult: results.data,
           productInfo: {
-            productCategory: undefined
+            productCategory: getProductCategory(results.data.ogTitle)
           },
           co2eFootprint: {
             metric: {
@@ -130,29 +129,29 @@ export async function processOgData(ogData: IOpenGraphInfo, urlHashKey: string) 
 }
 
 export async function fetchOgMetadataAndImagesAndUploadToAWS(urlToProcess: string, urlHashKey: string,
-                                                             writeHtmlToTestFolder = true) {
+                                                             writeHtmlToTestFolder = false) {
 
-  const ogInfo: IOpenGraphInfo = await getOpenGraphInfo(urlToProcess, false);
-  const ogInfoRobot: IOpenGraphInfo = await getOpenGraphInfo(urlToProcess, true);
+  const ogInfo: IOpenGraphInfo = await getOpenGraphInfo(urlToProcess, true);
+  // const ogInfoRobot: IOpenGraphInfo = await getOpenGraphInfo(urlToProcess, true);
 
   console.log("ogInfo=", ogInfo)
-  console.log("ogInfoRobot=", ogInfoRobot)
+  // console.log("ogInfoRobot=", ogInfoRobot)
 
-  if (instanceOfCustomSuccessResult(ogInfo) && instanceOfCustomSuccessResult(ogInfoRobot)) {
+  if (instanceOfCustomSuccessResult(ogInfo)) {
     if (writeHtmlToTestFolder) {
       fs.writeFileSync(`test/pages/${urlHashKey}.html`,
-                       ogInfoRobot.response.body.toString());
+                       ogInfo.response.body.toString());
     }
 
     // console.log("ogInfo['results']=", ogInfo['results'])
     // console.log("ogInfo['response']=", ogInfo['response']['childNodes'][1])
 
-    ogInfo.ogResult.ogImage = ogInfoRobot.ogResult.ogImage
-    ogInfo.productInfo.productCategory = getProductCategory(ogInfo.ogResult.ogTitle)
+    // ogInfo.ogResult.ogImage = ogInfoRobot.ogResult.ogImage
+    // ogInfo.productInfo.productCategory = getProductCategory(ogInfo.ogResult.ogTitle)
 
 
     const [successInGettingPrice, price] = getPrice(
-        parse(ogInfoRobot.response.body.toString()))
+        parse(ogInfo.response.body.toString()))
     if (successInGettingPrice) {
       ogInfo.productInfo.price = successInGettingPrice ? parseCurrency(price) : undefined
 
@@ -174,8 +173,8 @@ export async function fetchOgMetadataAndImagesAndUploadToAWS(urlToProcess: strin
     await processOgData(ogInfo, urlHashKey)
     return ogInfo;
   } else {
-    console.error(ogInfo.error)
-    console.error(ogInfoRobot.error)
+    console.error("something went wrong fetching ofInfo")
+    // console.error(ogInfoRobot.error)
     return {
       success: false,
       ogUrl: urlToProcess
