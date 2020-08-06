@@ -17,6 +17,7 @@ import {CustomSuccessResult, IOpenGraphInfo} from "./models/IOpenGraphInfo";
 import {PassThrough} from "stream";
 import {ICustomParsedCurrency} from "./models/ICustomParsedCurrency";
 import {convertGramsToHumanReadable} from "./convertUnits";
+import {generateIgCopy} from "./igCopy";
 
 
 export async function getOpenGraphInfo(urlToProcess: string,
@@ -112,6 +113,14 @@ export async function processOgData(ogData: IOpenGraphInfo, urlHashKey: string) 
     const imageBufferAwsPromise: any = uploadBufferToAmazon(imageBuffer,
                                                             `${urlHashKey}.jpg`);
 
+    const igCopy = generateIgCopy(ogData);
+    console.log("copy to follow\n")
+    console.log(generateIgCopy(ogData))
+    console.log("\n")
+
+    const copyAwsPromise: any = uploadBufferToAmazon(igCopy,
+                                                            `${urlHashKey}_ig_copy.txt`);
+
     // let igStoryBufferBufferAwsPromise = uploadBufferToAmazon(igStoryBuffer,
     //     `${urlHashKey}_ig_story.jpg`)
     //
@@ -121,6 +130,8 @@ export async function processOgData(ogData: IOpenGraphInfo, urlHashKey: string) 
     //
     const igFeedBufferBufferAwsPromise: any = uploadBufferToAmazon(igFeedBuffer,
                                                                    `${urlHashKey}_ig_feed.jpg`);
+    const jsonAwsPromise: any = uploadBufferToAmazon(JSON.stringify(ogData),
+                                             urlHashKey + ".json");
 
     // let igFeedWhiteTextBufferBufferAwsPromise = uploadBufferToAmazon(igFeedWhiteTextBuffer,
     //     `${urlHashKey}_ig_feed_white_text.jpg`);
@@ -130,18 +141,16 @@ export async function processOgData(ogData: IOpenGraphInfo, urlHashKey: string) 
 
     const [
       response1, response2,
-      // response3, response4, response5, response6
+      response3, response4
+      // response5, response6
     ] = await Promise.all(
-        [imageBufferAwsPromise, igFeedBufferBufferAwsPromise])
+        [imageBufferAwsPromise, igFeedBufferBufferAwsPromise, copyAwsPromise, jsonAwsPromise])
     console.log(`[${new Date().toUTCString()}]`, "awsResponse=", response1.Location);
     console.log(`[${new Date().toUTCString()}]`, "awsResponse=", response2.Location);
+    console.log(`[${new Date().toUTCString()}]`, "awsResponse=", response3.Location);
+    console.log(`[${new Date().toUTCString()}]`, "awsResponse=", response4.Location);
 
-    // ogData.processedImageHash = `${urlHashKey}.jpg`
   }
-
-  awsResponse = await uploadBufferToAmazon(JSON.stringify(ogData),
-                                           urlHashKey + ".json");
-  console.log("awsResponse=", awsResponse.Location);
   return ogData;
 }
 
@@ -303,47 +312,47 @@ export async function processIgFeedImageToBuffer(ogData: IOpenGraphInfo, ogImage
 
   outputImage = outputImage.composite(add, 842, 284);
 
-  outputImage = outputImage.composite(speaker, 71, 583);
+  outputImage = outputImage.composite(speaker, 487, 420);
 
-  outputImage = outputImage.composite(plant, 71, 826);
+  outputImage = outputImage.composite(plant, 87, 828);
 
-  outputImage = outputImage.composite(heart, 892, 948);
+  outputImage = outputImage.composite(heart, 899, 922);
 
 
   const purchasingText = 'Thinking of purchasing?'
-  outputImage = outputImage.print(workSans30, 83, 154, {
+  outputImage = outputImage.print(workSans30, 25, 104, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
     text: purchasingText
-  }, 620)
+  }, 730)
 
   let title = ogData.ogResult.ogTitle
   title = fixTitle(title)
-  outputImage = outputImage.print(ebGaramond50, 55, 200, {
+  outputImage = outputImage.print(ebGaramond50, 25, 150, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
     text: title
-  }, 680)
+  }, 730)
 
   const estimateText = 'We estimate creating this released the weight of'
-  outputImage = outputImage.print(workSans30, 182, 518, {
+  outputImage = outputImage.print(workSans30, 75, 526, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
     text: estimateText
-  }, 862)
+  }, 930)
 
   const co2HumanReadable = ogData.co2eFootprint.humanReadable.value
-  outputImage = outputImage.print(ebGaramond100, 191, 550, {
+  outputImage = outputImage.print(ebGaramond100, 75, 566, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
     text: co2HumanReadable
-  }, 862)
+  }, 930)
   const estimateText2 = 'worth of carbon into the environment.'
-  outputImage = outputImage.print(workSans30, 182, 675, {
+  outputImage = outputImage.print(workSans30, 75, 693, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
     text: estimateText2
-  }, 862)
+  }, 930)
 
   const grams = ogData.co2eFootprint.metric.value
   const kilograms = grams / 1000;
@@ -352,25 +361,25 @@ export async function processIgFeedImageToBuffer(ogData: IOpenGraphInfo, ogImage
     minimumFractionDigits: 0
   })}`
   const co2disclaimerText = `(That's ${kilogramsText}kg of CO2e)`
-  outputImage = outputImage.print(ebGaramond35Italic, 240, 716, {
+  outputImage = outputImage.print(ebGaramond35Italic, 75, 734, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
     text: co2disclaimerText
-  }, 746)
+  }, 930)
 
   const plantText = 'Consider buying used or reusing what you have instead of buying new.'
-  outputImage = outputImage.print(ebGaramond35Italic, 210, 826, {
+  outputImage = outputImage.print(workSans30, 225, 828, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_LEFT,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
     text: plantText
-  }, 662)
+  }, 658)
 
   const supportText = 'Enjoyed this? Give this a like to help support us and tag a friend who should know about this.'
-  outputImage = outputImage.print(ebGaramond35Italic, 210, 948, {
+  outputImage = outputImage.print(workSans30, 225, 922, {
     alignmentX: Jimp.HORIZONTAL_ALIGN_LEFT,
     alignmentY: Jimp.VERTICAL_ALIGN_TOP,
     text: supportText
-  }, 674)
+  }, 658)
   // outputImage = await outputImage.print(titleFont, 30, 30, title, 1020);
   // // here, the y value is just slightly less than 30 + titleHeight on purpose, so that
   // // the extractedUrl looks more attached to the title

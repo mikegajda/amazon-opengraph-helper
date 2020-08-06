@@ -34,4 +34,5 @@ export interface CustomSuccessResult {
       value: string
     }
   }
+  igCopy?: string
 }
