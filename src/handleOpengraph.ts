@@ -56,6 +56,8 @@ export async function getOpenGraphInfo(urlToProcess: string,
         }
         resolve(customResult)
       } else {
+        console.error("things have gone wrong")
+        console.error(results);
         resolve(results)
       }
     });
@@ -178,7 +180,7 @@ export async function fetchOgMetadataAndImagesAndUploadToAWS(urlToProcess: strin
     await processOgData(ogInfo, urlHashKey)
     return ogInfo;
   } else {
-    console.error("something went wrong fetching ofInfo")
+    console.error("something went wrong fetching ogInfo")
     // console.error(ogInfoRobot.error)
     return {
       success: false,
