@@ -15,7 +15,7 @@
     "express": "^4.17.1",
     "got": "^11.5.1",
     "jimp": "^0.12.1",
-    "mocha": "^8.0.1",
+    "mocha": "^8.4.0",
     "node-fetch": "^2.6.0",
     "node-html-parser": "^1.2.20",
     "open-graph-scraper": "^3.6.2",
